@@ -47,8 +47,7 @@ const PDFCompressor = () => {
         useObjectStreams: true,
         addDefaultPage: false,
         objectsPerTick: 10,
-        updateFieldAppearances: false,
-        compress: true
+        updateFieldAppearances: false
       });
       
       setProgress(100);
