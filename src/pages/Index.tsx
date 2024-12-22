@@ -1,4 +1,4 @@
-import { FileUp, FileSplit, FileDown, FileText, FileType } from 'lucide-react';
+import { FileUp, FileText, FileDown, FileType, FileInput } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import ToolCard from '@/components/ToolCard';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,7 +21,7 @@ const Index = () => {
       onClick: () => handleToolClick("Merge PDFs")
     },
     {
-      icon: FileSplit,
+      icon: FileInput,  // Replaced FileSplit with FileInput
       title: "Split PDF",
       description: "Extract or split pages from your PDF",
       onClick: () => handleToolClick("Split PDF")
