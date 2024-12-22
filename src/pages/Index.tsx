@@ -1,16 +1,22 @@
 import { FileUp, FileText, FileDown, FileType, FileInput, FilePen, FileImage, FileKey, FileSignature } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import FileUpload from '@/components/FileUpload';
 import ToolCard from '@/components/ToolCard';
 import { useToast } from '@/components/ui/use-toast';
 
 const Index = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleToolClick = (tool: string) => {
-    toast({
-      title: "Coming Soon",
-      description: `${tool} functionality will be implemented in the next iteration!`
-    });
+    if (tool === "Edit PDF") {
+      navigate('/edit-pdf');
+    } else {
+      toast({
+        title: "Coming Soon",
+        description: `${tool} functionality will be implemented in the next iteration!`
+      });
+    }
   };
 
   const tools = [
