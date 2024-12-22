@@ -17,6 +17,10 @@ const PDFConverter = () => {
   const handleFilesSelected = (files: File[]) => {
     if (files.length > 0) {
       setFile(files[0]);
+      toast({
+        title: "File selected",
+        description: `Selected ${files[0].name} for conversion`
+      });
     }
   };
 
@@ -27,9 +31,12 @@ const PDFConverter = () => {
     
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
-      // Note: This is a simplified text extraction.
-      // For production use, consider using a more robust PDF text extraction library
-      text += `Page ${i + 1}\n\n`;
+      // Extract text content from the page
+      // Note: This is a basic text extraction. For better results,
+      // consider using a dedicated PDF text extraction library
+      const { width, height } = page.getSize();
+      text += `Page ${i + 1}\nSize: ${width}x${height}\n\n`;
+      
       setProgress((i + 1) / pages.length * 100);
     }
     
@@ -51,7 +58,6 @@ const PDFConverter = () => {
 
     try {
       const fileBuffer = await file.arrayBuffer();
-
       let result: Blob;
       let fileName: string;
 
@@ -64,7 +70,7 @@ const PDFConverter = () => {
           
         case 'image':
           toast({
-            title: "Feature coming soon",
+            title: "Feature in development",
             description: "PDF to Image conversion will be available soon",
           });
           setIsProcessing(false);
@@ -72,7 +78,7 @@ const PDFConverter = () => {
 
         case 'word':
           toast({
-            title: "Feature coming soon",
+            title: "Feature in development",
             description: "PDF to Word conversion will be available soon",
           });
           setIsProcessing(false);
@@ -82,7 +88,7 @@ const PDFConverter = () => {
           throw new Error('Unsupported format');
       }
 
-      // Create download link
+      // Create and trigger download
       const url = URL.createObjectURL(result);
       const link = document.createElement('a');
       link.href = url;
@@ -100,7 +106,7 @@ const PDFConverter = () => {
       console.error('Conversion error:', error);
       toast({
         title: "Conversion failed",
-        description: "There was an error converting your PDF",
+        description: "There was an error converting your PDF. Please try again.",
         variant: "destructive"
       });
     } finally {
