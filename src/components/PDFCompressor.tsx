@@ -30,20 +30,19 @@ const PDFCompressor = () => {
       const arrayBuffer = await file.arrayBuffer();
       setProgress(50);
 
-      // Load the PDF document with compression options
+      // Load the PDF document with minimal metadata
       const pdfDoc = await PDFDocument.load(arrayBuffer, {
         updateMetadata: false
       });
       
       setProgress(75);
 
-      // Save with compression options
+      // Save with optimized options for compression
       const compressedPdfBytes = await pdfDoc.save({
         useObjectStreams: false,
         addDefaultPage: false,
         objectsPerTick: 50,
-        updateFieldAppearances: false,
-        compress: true // Enable built-in compression
+        updateFieldAppearances: false
       });
       
       setProgress(100);
@@ -55,7 +54,6 @@ const PDFCompressor = () => {
 
       const originalSize = (file.size / 1024 / 1024).toFixed(2);
       const compressedSize = (compressedPdfBytes.length / 1024 / 1024).toFixed(2);
-      
       const compressionRatio = ((1 - (compressedPdfBytes.length / file.size)) * 100).toFixed(1);
 
       toast({
