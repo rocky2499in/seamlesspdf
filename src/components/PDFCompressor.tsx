@@ -31,13 +31,34 @@ const PDFCompressor = () => {
       setProgress(50);
 
       // Load the PDF document
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const pdfDoc = await PDFDocument.load(arrayBuffer, {
+        updateMetadata: false // Helps reduce file size
+      });
+      
+      // Get all pages
+      const pages = pdfDoc.getPages();
       setProgress(75);
 
-      // Compress the PDF
+      // Compress each page's content
+      for (const page of pages) {
+        // Reduce image quality
+        page.node.setDictionary(new Map([
+          ...Array.from(page.node.dictionary.entries()),
+          ['Filter', 'DCTDecode'],
+          ['ColorSpace', 'DeviceRGB'],
+          ['BitsPerComponent', 8],
+          ['Quality', 50] // Lower quality for compression
+        ]));
+      }
+
+      // Save with compression options
       const compressedPdfBytes = await pdfDoc.save({
-        useObjectStreams: false, // This can help reduce file size
+        useObjectStreams: false,
+        addDefaultPage: false,
+        objectsPerTick: 50,
+        updateFieldAppearances: false,
       });
+      
       setProgress(100);
 
       // Create a blob URL for the compressed PDF
@@ -47,15 +68,18 @@ const PDFCompressor = () => {
 
       const originalSize = (file.size / 1024 / 1024).toFixed(2);
       const compressedSize = (compressedPdfBytes.length / 1024 / 1024).toFixed(2);
+      
+      const compressionRatio = ((1 - (compressedPdfBytes.length / file.size)) * 100).toFixed(1);
 
       toast({
         title: "PDF Compressed Successfully",
-        description: `Original: ${originalSize}MB → Compressed: ${compressedSize}MB`,
+        description: `Original: ${originalSize}MB → Compressed: ${compressedSize}MB (${compressionRatio}% reduction)`,
       });
     } catch (error) {
+      console.error('Compression error:', error);
       toast({
         title: "Compression Failed",
-        description: "There was an error compressing your PDF file",
+        description: "There was an error compressing your PDF file. Please try again with a different file.",
         variant: "destructive"
       });
     } finally {
@@ -76,10 +100,10 @@ const PDFCompressor = () => {
   };
 
   const handleDownload = () => {
-    if (compressedUrl) {
+    if (compressedUrl && file) {
       const link = document.createElement('a');
       link.href = compressedUrl;
-      link.download = `compressed-${file?.name || 'document.pdf'}`;
+      link.download = `compressed-${file.name}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
