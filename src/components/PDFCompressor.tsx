@@ -30,18 +30,21 @@ const PDFCompressor = () => {
       const arrayBuffer = await file.arrayBuffer();
       setProgress(50);
 
-      // Load the PDF document with minimal metadata
-      const pdfDoc = await PDFDocument.load(arrayBuffer, {
-        updateMetadata: false
-      });
+      // Load the PDF document
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      
+      // Copy the document to create a compressed version
+      const compressedPdf = await PDFDocument.create();
+      const pages = await compressedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+      pages.forEach(page => compressedPdf.addPage(page));
       
       setProgress(75);
 
-      // Save with optimized options for compression
-      const compressedPdfBytes = await pdfDoc.save({
-        useObjectStreams: false,
+      // Save with maximum compression
+      const compressedPdfBytes = await compressedPdf.save({
+        useObjectStreams: true,
         addDefaultPage: false,
-        objectsPerTick: 50,
+        objectsPerTick: 20,
         updateFieldAppearances: false
       });
       
