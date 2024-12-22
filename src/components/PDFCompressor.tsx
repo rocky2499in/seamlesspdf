@@ -30,26 +30,12 @@ const PDFCompressor = () => {
       const arrayBuffer = await file.arrayBuffer();
       setProgress(50);
 
-      // Load the PDF document
+      // Load the PDF document with compression options
       const pdfDoc = await PDFDocument.load(arrayBuffer, {
-        updateMetadata: false // Helps reduce file size
+        updateMetadata: false
       });
       
-      // Get all pages
-      const pages = pdfDoc.getPages();
       setProgress(75);
-
-      // Compress each page's content
-      for (const page of pages) {
-        // Reduce image quality
-        page.node.setDictionary(new Map([
-          ...Array.from(page.node.dictionary.entries()),
-          ['Filter', 'DCTDecode'],
-          ['ColorSpace', 'DeviceRGB'],
-          ['BitsPerComponent', 8],
-          ['Quality', 50] // Lower quality for compression
-        ]));
-      }
 
       // Save with compression options
       const compressedPdfBytes = await pdfDoc.save({
@@ -57,6 +43,7 @@ const PDFCompressor = () => {
         addDefaultPage: false,
         objectsPerTick: 50,
         updateFieldAppearances: false,
+        compress: true // Enable built-in compression
       });
       
       setProgress(100);
