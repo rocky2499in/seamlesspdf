@@ -1,4 +1,4 @@
-import { FileUp, FileText, FileDown, FileType, FileInput } from 'lucide-react';
+import { FileUp, FileText, FileDown, FileType, FileInput, FilePen, FileImage, FileKey, FileSignature } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import ToolCard from '@/components/ToolCard';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,7 +21,7 @@ const Index = () => {
       onClick: () => handleToolClick("Merge PDFs")
     },
     {
-      icon: FileInput,  // Replaced FileSplit with FileInput
+      icon: FileInput,
       title: "Split PDF",
       description: "Extract or split pages from your PDF",
       onClick: () => handleToolClick("Split PDF")
@@ -43,6 +43,30 @@ const Index = () => {
       title: "Word to PDF",
       description: "Convert Word documents to PDF format",
       onClick: () => handleToolClick("Word to PDF")
+    },
+    {
+      icon: FilePen,
+      title: "Edit PDF",
+      description: "Add text, images, and shapes to your PDF",
+      onClick: () => handleToolClick("Edit PDF")
+    },
+    {
+      icon: FileImage,
+      title: "PDF to Image",
+      description: "Convert PDF pages to JPG or PNG images",
+      onClick: () => handleToolClick("PDF to Image")
+    },
+    {
+      icon: FileKey,
+      title: "Protect PDF",
+      description: "Add password protection to your PDF",
+      onClick: () => handleToolClick("Protect PDF")
+    },
+    {
+      icon: FileSignature,
+      title: "Sign PDF",
+      description: "Add digital signatures to your documents",
+      onClick: () => handleToolClick("Sign PDF")
     }
   ];
 
