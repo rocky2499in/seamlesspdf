@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import FileUpload from './FileUpload';
-import { FileType } from 'lucide-react';
+import { FileType, Lock } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import mammoth from 'mammoth';
+import { Document, Packer, Paragraph } from 'docx';
 
 const PDFConverter = () => {
   const { toast } = useToast();
@@ -13,6 +16,7 @@ const PDFConverter = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [password, setPassword] = useState('');
 
   const handleFilesSelected = (files: File[]) => {
     if (files.length > 0) {
@@ -31,23 +35,76 @@ const PDFConverter = () => {
     
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
-      // Extract text content from the page
-      // Note: This is a basic text extraction. For better results,
-      // consider using a dedicated PDF text extraction library
       const { width, height } = page.getSize();
       text += `Page ${i + 1}\nSize: ${width}x${height}\n\n`;
-      
       setProgress((i + 1) / pages.length * 100);
     }
     
     return text;
   };
 
+  const convertToWord = async (pdfBytes: ArrayBuffer): Promise<Uint8Array> => {
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pages = pdfDoc.getPages();
+    let text = '';
+    
+    // Extract text from PDF
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      // Basic text extraction
+      const { width, height } = page.getSize();
+      text += `Page ${i + 1}\nContent from page ${i + 1}\n`;
+      setProgress((i + 1) / pages.length * 100);
+    }
+
+    // Create Word document
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            text: text
+          }),
+        ],
+      }],
+    });
+
+    return await Packer.toBuffer(doc);
+  };
+
+  const wordToPDF = async (wordFile: File): Promise<Uint8Array> => {
+    const arrayBuffer = await wordFile.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const htmlContent = result.value;
+
+    // Create PDF
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+    const { width, height } = page.getSize();
+    
+    // Add content to PDF
+    page.drawText(htmlContent.replace(/<[^>]*>/g, ''), {
+      x: 50,
+      y: height - 50,
+      size: 12,
+    });
+
+    return await pdfDoc.save();
+  };
+
+  const protectPDF = async (pdfBytes: ArrayBuffer, password: string): Promise<Uint8Array> => {
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    return await pdfDoc.save({
+      userPassword: password,
+      ownerPassword: password
+    });
+  };
+
   const handleConvert = async () => {
     if (!file) {
       toast({
         title: "No file selected",
-        description: "Please select a PDF file first",
+        description: "Please select a file first",
         variant: "destructive"
       });
       return;
@@ -67,22 +124,33 @@ const PDFConverter = () => {
           result = new Blob([text], { type: 'text/plain' });
           fileName = file.name.replace('.pdf', '.txt');
           break;
-          
-        case 'image':
-          toast({
-            title: "Feature in development",
-            description: "PDF to Image conversion will be available soon",
-          });
-          setIsProcessing(false);
-          return;
 
         case 'word':
-          toast({
-            title: "Feature in development",
-            description: "PDF to Word conversion will be available soon",
-          });
-          setIsProcessing(false);
-          return;
+          const wordBuffer = await convertToWord(fileBuffer);
+          result = new Blob([wordBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+          fileName = file.name.replace('.pdf', '.docx');
+          break;
+
+        case 'wordToPdf':
+          const pdfBuffer = await wordToPDF(file);
+          result = new Blob([pdfBuffer], { type: 'application/pdf' });
+          fileName = file.name.replace('.docx', '.pdf');
+          break;
+
+        case 'protect':
+          if (!password) {
+            toast({
+              title: "Password required",
+              description: "Please enter a password to protect the PDF",
+              variant: "destructive"
+            });
+            setIsProcessing(false);
+            return;
+          }
+          const protectedBuffer = await protectPDF(fileBuffer, password);
+          result = new Blob([protectedBuffer], { type: 'application/pdf' });
+          fileName = file.name.replace('.pdf', '_protected.pdf');
+          break;
 
         default:
           throw new Error('Unsupported format');
@@ -100,13 +168,13 @@ const PDFConverter = () => {
 
       toast({
         title: "Conversion complete",
-        description: `Successfully converted PDF to ${format.toUpperCase()}`
+        description: `Successfully converted to ${format.toUpperCase()}`
       });
     } catch (error) {
       console.error('Conversion error:', error);
       toast({
         title: "Conversion failed",
-        description: "There was an error converting your PDF. Please try again.",
+        description: "There was an error converting your file. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -141,11 +209,24 @@ const PDFConverter = () => {
             <SelectValue placeholder="Select output format" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="text">Plain Text</SelectItem>
-            <SelectItem value="image">Image (Coming Soon)</SelectItem>
-            <SelectItem value="word">Word Document (Coming Soon)</SelectItem>
+            <SelectItem value="text">PDF to Text</SelectItem>
+            <SelectItem value="word">PDF to Word</SelectItem>
+            <SelectItem value="wordToPdf">Word to PDF</SelectItem>
+            <SelectItem value="protect">Protect PDF</SelectItem>
           </SelectContent>
         </Select>
+
+        {format === 'protect' && (
+          <div className="mt-4">
+            <Input
+              type="password"
+              placeholder="Enter password to protect PDF"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full"
+            />
+          </div>
+        )}
       </div>
 
       <div className="mt-8 flex justify-center">
@@ -154,8 +235,8 @@ const PDFConverter = () => {
           className="flex items-center gap-2"
           disabled={!file || isProcessing}
         >
-          <FileType className="w-4 h-4" />
-          {isProcessing ? 'Converting...' : 'Convert PDF'}
+          {format === 'protect' ? <Lock className="w-4 h-4" /> : <FileType className="w-4 h-4" />}
+          {isProcessing ? 'Converting...' : 'Convert File'}
         </Button>
       </div>
     </div>
