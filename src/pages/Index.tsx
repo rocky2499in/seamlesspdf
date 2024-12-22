@@ -9,13 +9,28 @@ const Index = () => {
   const navigate = useNavigate();
 
   const handleToolClick = (tool: string) => {
-    if (tool === "Edit PDF") {
-      navigate('/edit-pdf');
-    } else {
-      toast({
-        title: "Coming Soon",
-        description: `${tool} functionality will be implemented in the next iteration!`
-      });
+    switch (tool) {
+      case "Edit PDF":
+        navigate('/edit-pdf');
+        break;
+      case "Merge PDFs":
+        navigate('/merge-pdf');
+        break;
+      case "Split PDF":
+        navigate('/split-pdf');
+        break;
+      case "Compress PDF":
+        navigate('/compress-pdf');
+        break;
+      case "PDF to Word":
+      case "Word to PDF":
+        navigate('/convert-pdf');
+        break;
+      default:
+        toast({
+          title: "Coming Soon",
+          description: `${tool} functionality will be implemented in the next iteration!`
+        });
     }
   };
 
