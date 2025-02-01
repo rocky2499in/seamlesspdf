@@ -95,8 +95,7 @@ const PDFConverter = () => {
   const protectPDF = async (pdfBytes: ArrayBuffer, password: string): Promise<Uint8Array> => {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     return await pdfDoc.save({
-      userPassword: password,
-      ownerPassword: password
+      password: password  // Using the correct property name
     });
   };
 
