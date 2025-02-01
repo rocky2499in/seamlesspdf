@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import FileUpload from './FileUpload';
-import { ArrowDownUp, MoveUp, MoveDown } from 'lucide-react';
+import { ArrowDownUp, MoveUp, MoveDown, File, Image } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 interface FileWithOrder extends File {
   order: number;
   selected: boolean;
+  pageCount?: number;
+  pageImages?: string[];
 }
 
 const PDFMerger = () => {
@@ -20,14 +22,52 @@ const PDFMerger = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [reverseOrder, setReverseOrder] = useState(false);
   const [selectedOnly, setSelectedOnly] = useState(false);
+  const [expandedFile, setExpandedFile] = useState<number | null>(null);
 
-  const handleFilesSelected = (selectedFiles: File[]) => {
+  const handleFilesSelected = async (selectedFiles: File[]) => {
     const filesWithOrder = selectedFiles.map((file, index) => ({
       ...file,
       order: index + 1,
       selected: true,
     }));
     setFiles(filesWithOrder);
+    
+    // Generate previews for each file
+    for (let i = 0; i < filesWithOrder.length; i++) {
+      await generatePDFPreview(filesWithOrder[i], i);
+    }
+  };
+
+  const generatePDFPreview = async (file: FileWithOrder, index: number) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const pageCount = pdfDoc.getPageCount();
+      const pageImages: string[] = [];
+
+      // Generate preview for first page only initially
+      const pages = pdfDoc.getPages();
+      if (pages.length > 0) {
+        const firstPage = pages[0];
+        const pngBytes = await firstPage.png();
+        const base64String = btoa(
+          new Uint8Array(pngBytes).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        pageImages.push(`data:image/png;base64,${base64String}`);
+      }
+
+      setFiles(prevFiles => {
+        const newFiles = [...prevFiles];
+        newFiles[index] = {
+          ...newFiles[index],
+          pageCount,
+          pageImages,
+        };
+        return newFiles;
+      });
+    } catch (error) {
+      console.error('Error generating PDF preview:', error);
+    }
   };
 
   const moveFile = (index: number, direction: 'up' | 'down') => {
@@ -44,6 +84,10 @@ const PDFMerger = () => {
     const newFiles = [...files];
     newFiles[index].selected = !newFiles[index].selected;
     setFiles(newFiles);
+  };
+
+  const toggleFileExpansion = (index: number) => {
+    setExpandedFile(expandedFile === index ? null : index);
   };
 
   const handleMerge = async () => {
@@ -141,34 +185,73 @@ const PDFMerger = () => {
               {files.length} file{files.length !== 1 ? 's' : ''} selected
             </p>
             {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    checked={file.selected}
-                    onChange={() => toggleFileSelection(index)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm">{file.name}</span>
+              <div key={index} className="border rounded-lg mb-4 last:mb-0">
+                <div className="flex items-center justify-between p-4 cursor-pointer"
+                     onClick={() => toggleFileExpansion(index)}>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={file.selected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleFileSelection(index);
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <File className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <span className="text-sm font-medium">{file.name}</span>
+                      {file.pageCount && (
+                        <p className="text-xs text-gray-500">
+                          {file.pageCount} page{file.pageCount !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveFile(index, 'up');
+                      }}
+                      disabled={index === 0}
+                    >
+                      <MoveUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        moveFile(index, 'down');
+                      }}
+                      disabled={index === files.length - 1}
+                    >
+                      <MoveDown className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => moveFile(index, 'up')}
-                    disabled={index === 0}
-                  >
-                    <MoveUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => moveFile(index, 'down')}
-                    disabled={index === files.length - 1}
-                  >
-                    <MoveDown className="h-4 w-4" />
-                  </Button>
-                </div>
+                
+                {expandedFile === index && file.pageImages && (
+                  <div className="p-4 border-t bg-gray-50">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {file.pageImages.map((image, pageIndex) => (
+                        <div key={pageIndex} className="relative aspect-[3/4] rounded-lg overflow-hidden border bg-white">
+                          <img
+                            src={image}
+                            alt={`Page ${pageIndex + 1}`}
+                            className="object-contain w-full h-full"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 text-center">
+                            Page {pageIndex + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
