@@ -2,25 +2,57 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import FileUpload from './FileUpload';
-import { ArrowDownUp } from 'lucide-react';
+import { ArrowDownUp, MoveUp, MoveDown } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+
+interface FileWithOrder extends File {
+  order: number;
+  selected: boolean;
+}
 
 const PDFMerger = () => {
   const { toast } = useToast();
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileWithOrder[]>([]);
   const [progress, setProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [reverseOrder, setReverseOrder] = useState(false);
+  const [selectedOnly, setSelectedOnly] = useState(false);
 
   const handleFilesSelected = (selectedFiles: File[]) => {
-    setFiles(selectedFiles);
+    const filesWithOrder = selectedFiles.map((file, index) => ({
+      ...file,
+      order: index + 1,
+      selected: true,
+    }));
+    setFiles(filesWithOrder);
+  };
+
+  const moveFile = (index: number, direction: 'up' | 'down') => {
+    const newFiles = [...files];
+    if (direction === 'up' && index > 0) {
+      [newFiles[index], newFiles[index - 1]] = [newFiles[index - 1], newFiles[index]];
+    } else if (direction === 'down' && index < files.length - 1) {
+      [newFiles[index], newFiles[index + 1]] = [newFiles[index + 1], newFiles[index]];
+    }
+    setFiles(newFiles);
+  };
+
+  const toggleFileSelection = (index: number) => {
+    const newFiles = [...files];
+    newFiles[index].selected = !newFiles[index].selected;
+    setFiles(newFiles);
   };
 
   const handleMerge = async () => {
-    if (files.length < 2) {
+    const filesToMerge = files.filter(file => !selectedOnly || file.selected);
+    
+    if (filesToMerge.length < 2) {
       toast({
         title: "Not enough files",
-        description: "Please upload at least 2 PDF files to merge",
+        description: "Please select at least 2 PDF files to merge",
         variant: "destructive"
       });
       return;
@@ -30,29 +62,23 @@ const PDFMerger = () => {
       setIsProcessing(true);
       setProgress(0);
 
-      // Create a new PDF document
       const mergedPdf = await PDFDocument.create();
+      const orderedFiles = reverseOrder ? [...filesToMerge].reverse() : filesToMerge;
       
-      // Process each file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < orderedFiles.length; i++) {
+        const file = orderedFiles[i];
         const fileArrayBuffer = await file.arrayBuffer();
         const pdf = await PDFDocument.load(fileArrayBuffer);
         
-        // Copy all pages from the current PDF to the merged PDF
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
         copiedPages.forEach((page) => {
           mergedPdf.addPage(page);
         });
         
-        // Update progress
-        setProgress(((i + 1) / files.length) * 100);
+        setProgress(((i + 1) / orderedFiles.length) * 100);
       }
 
-      // Save the merged PDF
       const mergedPdfBytes = await mergedPdf.save();
-      
-      // Create a blob and download the file
       const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -90,10 +116,63 @@ const PDFMerger = () => {
       <FileUpload onFilesSelected={handleFilesSelected} />
 
       {files.length > 0 && (
-        <div className="mt-4">
-          <p className="text-sm text-gray-600 mb-2">
-            {files.length} file{files.length !== 1 ? 's' : ''} selected
-          </p>
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="reverse-order"
+                checked={reverseOrder}
+                onCheckedChange={setReverseOrder}
+              />
+              <Label htmlFor="reverse-order">Reverse Order</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="selected-only"
+                checked={selectedOnly}
+                onCheckedChange={setSelectedOnly}
+              />
+              <Label htmlFor="selected-only">Merge Selected Only</Label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <p className="text-sm text-gray-600 mb-2">
+              {files.length} file{files.length !== 1 ? 's' : ''} selected
+            </p>
+            {files.map((file, index) => (
+              <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={file.selected}
+                    onChange={() => toggleFileSelection(index)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">{file.name}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => moveFile(index, 'up')}
+                    disabled={index === 0}
+                  >
+                    <MoveUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => moveFile(index, 'down')}
+                    disabled={index === files.length - 1}
+                  >
+                    <MoveDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {isProcessing && (
             <Progress value={progress} className="w-full mb-4" />
           )}
